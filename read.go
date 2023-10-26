@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/aliworkshop/error"
+	"github.com/redis/go-redis/v9"
 	"time"
 )
 
@@ -22,6 +23,9 @@ func (r *repo) ListKeys(ctx context.Context, pattern string) ([]string, error.Er
 func (r *repo) Fetch(ctx context.Context, key string) ([]byte, error.ErrorModel) {
 	data, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
+		if e, ok := err.(redis.Error); ok && e == redis.Nil {
+			return nil, nil
+		}
 		return nil, error.DefaultInternalError.WithError(err)
 	}
 	return data, nil
@@ -30,6 +34,9 @@ func (r *repo) Fetch(ctx context.Context, key string) ([]byte, error.ErrorModel)
 func (r *repo) Load(ctx context.Context, key string, result any) error.ErrorModel {
 	data, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
+		if e, ok := err.(redis.Error); ok && e == redis.Nil {
+			return nil
+		}
 		return error.DefaultInternalError.WithError(err)
 	}
 
