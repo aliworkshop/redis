@@ -3,16 +3,16 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"github.com/aliworkshop/error"
+	"github.com/aliworkshop/errors"
 	"github.com/redis/go-redis/v9"
 	"time"
 )
 
-func (r *repo) ListKeys(ctx context.Context, pattern string) ([]string, error.ErrorModel) {
+func (r *repo) ListKeys(ctx context.Context, pattern string) ([]string, errors.ErrorModel) {
 	keys := make([]string, 0)
-	itr := r.client.Scan(ctx, 0, pattern, 0).Iterator()
+	itr := r.getLoadTx().Scan(ctx, 0, pattern, 0).Iterator()
 	if err := itr.Err(); err != nil {
-		return nil, error.DefaultInternalError.WithError(err)
+		return nil, errors.Internal(err)
 	}
 	for itr.Next(ctx) {
 		keys = append(keys, itr.Val())
@@ -20,38 +20,38 @@ func (r *repo) ListKeys(ctx context.Context, pattern string) ([]string, error.Er
 	return keys, nil
 }
 
-func (r *repo) Fetch(ctx context.Context, key string) ([]byte, error.ErrorModel) {
-	data, err := r.client.Get(ctx, key).Bytes()
+func (r *repo) Fetch(ctx context.Context, key string) ([]byte, errors.ErrorModel) {
+	data, err := r.getLoadTx().Get(ctx, key).Bytes()
 	if err != nil {
 		if e, ok := err.(redis.Error); ok && e == redis.Nil {
 			return nil, nil
 		}
-		return nil, error.DefaultInternalError.WithError(err)
+		return nil, errors.Internal(err)
 	}
 	return data, nil
 }
 
-func (r *repo) Load(ctx context.Context, key string, result any) error.ErrorModel {
-	data, err := r.client.Get(ctx, key).Bytes()
+func (r *repo) Load(ctx context.Context, key string, result any) errors.ErrorModel {
+	data, err := r.getLoadTx().Get(ctx, key).Bytes()
 	if err != nil {
 		if e, ok := err.(redis.Error); ok && e == redis.Nil {
 			return nil
 		}
-		return error.DefaultInternalError.WithError(err)
+		return errors.Internal(err)
 	}
 
 	err = json.Unmarshal(data, result)
 	if err != nil {
-		return error.DefaultInternalError.WithError(err)
+		return errors.Internal(err)
 	}
 
 	return nil
 }
 
-func (r *repo) GetExpiration(ctx context.Context, key string) (time.Duration, error.ErrorModel) {
-	dur, err := r.client.TTL(ctx, key).Result()
+func (r *repo) GetExpiration(ctx context.Context, key string) (time.Duration, errors.ErrorModel) {
+	dur, err := r.getLoadTx().TTL(ctx, key).Result()
 	if err != nil {
-		return 0, error.DefaultInternalError.WithError(err)
+		return 0, errors.Internal(err)
 	}
 	return dur, nil
 }
